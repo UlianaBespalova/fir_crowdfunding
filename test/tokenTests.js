@@ -3,7 +3,7 @@ const _deploy_contracts = require("../migrations/2_deploy_contracts.js");
 const FirToken = artifacts.require("FirToken");
 const truffleAssert = require('truffle-assertions');
 
-
+/*
 contract("tokenTest", accounts => {
 
     let contract;
@@ -72,8 +72,8 @@ contract("tokenTest", accounts => {
 
         let acc1 = accounts[0];
         let acc2 = accounts[1];
-
         let err;
+
         try {
             await contract.transfer(acc2, 3000);            
         } catch (error) {
@@ -91,10 +91,10 @@ contract("tokenTest", accounts => {
 
         let acc1 = accounts[0];
         let acc2 = accounts[1];
+        let err;
 
         await contract.transfer(acc2, 500);  
 
-        let err;
         try {
             await contract.transferFrom(acc2, acc1, 200);            
         } catch (error) {
@@ -177,9 +177,9 @@ contract("tokenTest", accounts => {
     it ("stoppableFailed: ", async()=> {
         
         let acc2 = accounts[1];
+        let err;
         await contract.stop();
 
-        let err;
         try {
             await contract.approve(acc2, 10);           
         } catch (error) {
@@ -199,4 +199,4 @@ contract("tokenTest", accounts => {
         assert.equal(noErr, undefined);
     });
 
-});
+});*/

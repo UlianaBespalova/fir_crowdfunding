@@ -7,15 +7,15 @@ contract FirToken {
 
     using SafeMath for uint256;
 
-    bytes32                                           public  symbol;
-    uint256                                           public  decimals = 18;
-    bytes32                                           public  name = "";  
+    bytes32 public symbol;
+    uint256 public decimals = 18;
+    bytes32 public name = "";  
 
-    uint256                                           public  totalSupply;
-    bool                                              public  stopped;
+    uint256 public totalSupply;
+    bool public stopped;
 
-    mapping (address => uint256)                      public  balanceOf;
-    mapping (address => mapping (address => uint256)) public  allowed;
+    mapping (address => uint256) public balanceOf;
+    mapping (address => mapping (address => uint256)) public allowed;
    
        
     modifier stoppable {
@@ -65,7 +65,7 @@ contract FirToken {
     }
 
 
-    function _transferFrom(address src, address dst, uint wad) private returns (bool)
+    function _transferFrom(address src, address dst, uint wad) internal returns (bool)
     {
         balanceOf[src] = (balanceOf[src]).sub(wad);
         balanceOf[dst] = (balanceOf[dst]).add(wad);
