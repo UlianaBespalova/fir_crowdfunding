@@ -8,28 +8,30 @@ const truffleAssert = require('truffle-assertions');
 contract("crowdfundingTest", accounts => {
 
     let contract;
+    let token;
 
-    let acc0 = '0x0000000000000000000000000000000000000000';
-    let acc1 = accounts[0];
-    let acc2 = accounts[1];
-    let acc3 = accounts[2];
+    const acc0 = '0x0000000000000000000000000000000000000000';
+    const acc1 = accounts[0];
+    const acc2 = accounts[1];
+    const acc3 = accounts[2];
 
     beforeEach(async function() {
         contract = await Crowdfunding.deployed();
+        token = await FirToken.deployed();
     });
 
 
     it ("createNewCampaign: ", async()=> {
 
-        let campaignID = await contract.newCampaign.call("somebody save me", 10, acc0);
+        let campaignID = await contract.newCampaign.call("somebody save me", 50, acc0);
         assert.equal(campaignID.valueOf(), 0);
 
-        await contract.newCampaign("somebody save me", 10, acc0);
+        await contract.newCampaign("somebody save me", 50, acc0);
        
         let res = await contract.getCampaignInfo(campaignID.valueOf());
         assert.equal(res[0], "somebody save me");
         assert.equal(res[1], acc1);
-        assert.equal(res[2].valueOf(), 10);
+        assert.equal(res[2].valueOf(), 50);
 
 
         campaignID = await contract.newCampaign.call("", 20, acc2);
@@ -51,11 +53,21 @@ contract("crowdfundingTest", accounts => {
 
         let res = await contract.newCampaign("", 30, acc1);
         truffleAssert.eventEmitted(res, 'CampaignAdded', (event)=>{
-            return (event.campaignID.valueOf()==2 && event.amount.valueOf()==30 && event.manager===acc1);
+            return (event.campaignID.valueOf()==2 && 
+                    event.amount.valueOf()==30 && event.manager===acc1);
         });
+
+
+        await token.approve(contract.address, 100);
+        let endTime = Math.floor(Date.now()/1000)+1;
+        await contract.setSaleParams(2, token.address, acc1, [1, 100, 0], endTime); 
+
+        await contract.startSelling(2);
+        await contract.crowdSell(2, acc2, {value: 10, from: acc2});
+        await contract.crowdSell(2, acc3, {value: 10, from: acc3}); 
     });
 
-/*
+
     it ("createNewCampaignFailed (moreThanZero): ", async()=> {
 
         let err;
@@ -125,7 +137,6 @@ contract("crowdfundingTest", accounts => {
 
     it ("setSaleParamsFailed (Incorrect owner): ", async()=> {
 
-        token = await FirToken.deployed();
         let err;
 
         try {
@@ -140,7 +151,6 @@ contract("crowdfundingTest", accounts => {
 
     it ("setSaleParamsFailed (Wrong price): ", async()=> {
 
-        token = await FirToken.deployed();
         let err;
 
         try {
@@ -155,7 +165,6 @@ contract("crowdfundingTest", accounts => {
 
     it ("setSaleParamsFailed (Wrong number of tokens): ", async()=> {
 
-        token = await FirToken.deployed();
         let err;
 
         try {
@@ -170,11 +179,12 @@ contract("crowdfundingTest", accounts => {
 
     it ("setSaleParamsFailed (Not enough allowance): ", async()=> {
 
-        token = await FirToken.deployed();
+        await contract.newCampaign("", 100, acc1);
+
         let err;
 
         try {
-            await contract.setSaleParams(0, token.address, acc1, [2, 100, 0], 10);      
+            await contract.setSaleParams(3, token.address, accounts[4], [2, 100, 0], 10);      
         } catch (error) {
             err = error;
         }        
@@ -185,7 +195,6 @@ contract("crowdfundingTest", accounts => {
 
     it ("setSaleParamsFailed (Incorrent end time): ", async()=> {
 
-        token = await FirToken.deployed();
         await token.approve(contract.address, 100);
 
         let err;
@@ -197,47 +206,44 @@ contract("crowdfundingTest", accounts => {
         }        
         assert.notEqual(err, undefined, "Error must be thrown");
         assert.isAbove(err.message.search("Incorrent end time"), -1);
-    });*/
+    });
 
 
     it ("setSaleParams: ", async()=> {
 
-        token = await FirToken.deployed();
         await token.approve(contract.address, 100);
         
         let endTime = Math.floor(Date.now()/1000)+1000;
 
-        await contract.setSaleParams(0, token.address, acc1, [2, 100, 0], endTime); 
+        await contract.setSaleParams(0, token.address, acc1, [2, 100, 10], endTime); 
 
         let res = await contract.getTokenInfo(0);
         assert.equal(res[0], token.address);
         assert.equal(res[1], 2);
         assert.equal(res[2], 100);
-        assert.equal(res[3], 0);
+        assert.equal(res[3], 10);
     });
 
 
     it ("setSaleParamsEvent: ", async()=> {
 
-        token = await FirToken.deployed();
-        await token.approve(contract.address, 100);
+        await token.approve(contract.address, 20);
         
-        let endTime = Math.floor(Date.now()/1000)+1;
+        let endTime = Math.floor(Date.now()/1000)+10;
 
-        let res = await contract.setSaleParams(1, token.address, acc1, [2, 100, 0], endTime, {from: acc2}); 
+        let res = await contract.setSaleParams(1, token.address, acc1, [1, 20, 10], endTime, {from: acc2}); 
         truffleAssert.eventEmitted(res, 'SaleParamsSetted', (event)=>{
             return (event.campaignID.valueOf()==1 && 
                     event.token===token.address && 
-                    event.price.valueOf()==2 &&
-                    event.quantity.valueOf()==100 &&
+                    event.price.valueOf()==1 &&
+                    event.quantity.valueOf()==20 &&
                     event.end.valueOf()==endTime);
         });
     });
 
-/*
+
     it ("setSaleParamsFailed (Params already set): ", async()=> {
 
-        token = await FirToken.deployed();
         let err;
 
         try {
@@ -256,7 +262,7 @@ contract("crowdfundingTest", accounts => {
         assert.equal(status, 3);
 
         status = await contract.getCampaignStatus.call(2);
-        assert.equal(status, 3);
+        assert.equal(status, 2);
     });
 
 
@@ -265,13 +271,13 @@ contract("crowdfundingTest", accounts => {
         let err;
 
         try {
-            await contract.startSelling(2);      
+            await contract.startSelling(3);      
         } catch (error) {
             err = error;
         }        
         assert.notEqual(err, undefined, "Error must be thrown");
         assert.isAbove(err.message.search("Set sale parameters first"), -1);
-    });*/
+    });
     
 
     it ("startSelling: ", async()=> {
@@ -288,14 +294,14 @@ contract("crowdfundingTest", accounts => {
         let currentTime = Math.floor(Date.now()/1000);
 
         let res = await contract.startSelling(1, {from: acc2});
-        truffleAssert.eventEmitted(res, 'StartSelling', (event)=>{
+        truffleAssert.eventEmitted(res, 'StartedSelling', (event)=>{
             return (event.campaignID.valueOf()==1 && 
                     event.startTime.valueOf() <= currentTime+1 &&
                     event.startTime.valueOf() >= currentTime);
         });
     });
 
-/*
+
     it ("startSellingFailed (Wrong status): ", async()=> {
 
         let err;
@@ -341,20 +347,181 @@ contract("crowdfundingTest", accounts => {
         let currentTime = Math.floor(Date.now()/1000);
 
         let res = await contract.stopSelling(0);
-        truffleAssert.eventEmitted(res, 'StopSelling', (event)=>{
+        truffleAssert.eventEmitted(res, 'StoppedSelling', (event)=>{
             return (event.campaignID.valueOf()==0 && 
                     event.stopTime.valueOf() <= currentTime+1 &&
                     event.stopTime.valueOf() >= currentTime);
         });
         await contract.startSelling(0); 
-    });*/
+    });
 
 
+    it ("getSoldTokens: ", async()=> {
+        let sold = await contract.getSoldTokens.call(0); 
+        assert.equal(sold.valueOf(), 0);
+    });
+
+
+    it ("crowdSellFailed (Stopped): ", async()=> {
+
+        let err;
+
+        try {
+            await contract.crowdSell(2, acc3, {value: 20, from: acc2});      
+        } catch (error) {
+            err = error;
+        }        
+        assert.notEqual(err, undefined, "Error must be thrown");
+        assert.isAbove(err.message.search("Fundraising stopped"), -1);
+    });
     
 
-//getSoldTokens
-//начать продажу если другой статус (ошибка), восстановить после паузы, после сбора
-//Проверка всех статусов
+    it ("crowdSellFailed (Sold out): ", async()=> {
 
+        let err;
+
+        try {
+            await contract.crowdSell(1, acc3, {value: 25, from: acc2});      
+        } catch (error) {
+            err = error;
+        }        
+        assert.notEqual(err, undefined, "Error must be thrown");
+        assert.isAbove(err.message.search("Sold out"), -1);
+    });
+
+
+    it ("crowdSellFailed (Not enough allowance): ", async()=> {
+
+        let err;
+
+        try {
+            await contract.crowdSell(1, acc3, {value: 20, from: acc2});      
+        } catch (error) {
+            err = error;
+        }        
+        assert.notEqual(err, undefined, "Error must be thrown");
+        assert.isAbove(err.message.search("Make sure allowance is enough"), -1);
+    });
+
+
+    it ("crowdSell: ", async()=> {
+
+        let balanceOld_acc1 = await token.balanceOf(acc1);
+        let balanceOld_acc2 = await token.balanceOf(acc2);
+        let balanceOld_acc3 = await token.balanceOf(acc3);
+
+        await contract.crowdSell(0, acc3, {value: 20, from: acc2}); 
+
+        let balanceNew_acc1 = await token.balanceOf(acc1);
+        let balanceNew_acc2 = await token.balanceOf(acc2);
+        let balanceNew_acc3 = await token.balanceOf(acc3);
+
+        let sold = await contract.getSoldTokens.call(0); 
+
+        assert.equal(sold, 10);
+        assert.equal(balanceNew_acc2 - balanceOld_acc2, 10);
+        assert.equal(balanceNew_acc3 - balanceOld_acc3, 1);
+        assert.equal(balanceOld_acc1 - balanceNew_acc1, 11);
+    });
+
+
+    it ("crowdSellNoRebate: ", async()=> {
+
+        let balanceOld_acc1 = await token.balanceOf(acc1);
+        let balanceOld_acc2 = await token.balanceOf(acc2);
+
+        await contract.crowdSell(0, acc2, {value: 10, from: acc2}); 
+
+        let balanceNew_acc1 = await token.balanceOf(acc1);
+        let balanceNew_acc2 = await token.balanceOf(acc2);
+
+        let sold = await contract.getSoldTokens.call(0); 
+
+        assert.equal(sold, 15);
+        assert.equal(balanceNew_acc2 - balanceOld_acc2, 5);
+        assert.equal(balanceOld_acc1 - balanceNew_acc1, 5);
+    });
+
+
+    it ("crowdSellEvent: ", async()=> {
+
+        let res = await contract.crowdSell(0, acc3, {value: 10, from: acc2}); 
+        truffleAssert.eventEmitted(res, 'CrowdSell', (event)=>{
+            return (event.campaignID.valueOf() == 0 && 
+                    event.from === acc2 &&
+                    event.amount.valueOf() == 10 &&
+                    event.inviter === acc3 &&
+                    event.rebate.valueOf() == 0);
+        });
+    });
+
+
+    it ("crowdfundingSucceeded: ", async()=> {
+
+        status = await contract.getCampaignStatus.call(0);
+        assert.equal(status, 0);
+
+        await contract.crowdSell(0, acc3, {value: 12, from: acc3}); 
+
+        let sold = await contract.getSoldTokens.call(0); 
+        assert.equal(sold, 26);
+
+        status = await contract.getCampaignStatus.call(0);
+        assert.equal(status, 1);
+    });
+
+
+    it ("crowdfundingFailed: ", async()=> {
+
+        let sold = await contract.getSoldTokens.call(2); 
+        assert.equal(sold, 20);
+
+        status = await contract.getCampaignStatus.call(2);
+        assert.equal(status, 2);        
+    });
+
+
+    it ("claimAwardFailed (Was not successful): ", async()=> {
+
+        let err;
+
+        try {
+            await contract.claim(2);    
+        } catch (error) {
+            err = error;
+        }        
+        assert.notEqual(err, undefined, "Error must be thrown");
+        assert.isAbove(err.message.search("Сampaign was not successful"), -1);
+    });
+
+
+    it ("claimAwardEvent: ", async()=> {
+
+        let balanceOld = await web3.eth.getBalance(contract.address);
+        res = await contract.claim(0);
+        let balanceNew = await web3.eth.getBalance(contract.address);
+
+        assert.equal(balanceOld - balanceNew, 52);
+
+        truffleAssert.eventEmitted(res, 'Claimed', (event)=>{
+            return (event.campaignID.valueOf() == 0 && 
+                    event.receiver === acc1 &&
+                    event.amount.valueOf() == 52);
+        });    
+    });
+
+
+    it ("claimAwardFailed (Already withdrawn): ", async()=> {
+
+        let err;
+
+        try {
+            await contract.claim(0);    
+        } catch (error) {
+            err = error;
+        }        
+        assert.notEqual(err, undefined, "Error must be thrown");
+        assert.isAbove(err.message.search("Already withdrawn"), -1);
+    });
 
 });

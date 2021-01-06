@@ -25,7 +25,7 @@ contract Crowdfunding {
         address tokenAddress;
         address owner;
         uint price;
-        uint rebate;
+        uint rebateRate;
         uint quantity;
         uint soldQuantity;
     }
@@ -39,6 +39,7 @@ contract Crowdfunding {
         string description;
         address manager;
         uint amount;
+        bool claimed;
 
         CampaignStatus status;
 
@@ -81,12 +82,20 @@ contract Crowdfunding {
                            address indexed token, 
                            uint indexed price, 
                            uint quantity,
-                           uint rebate,  
+                           uint rebateRate,  
                            uint end); 
 
-    event StartSelling (uint indexed campaignID, uint indexed startTime);   
+    event StartedSelling (uint indexed campaignID, uint indexed startTime);   
 
-    event StopSelling (uint indexed campaignID, uint indexed stopTime);                                      
+    event StoppedSelling (uint indexed campaignID, uint indexed stopTime);  
+
+    event CrowdSell (uint indexed campaignID, 
+                     address indexed from,
+                     uint indexed amount,
+                     address inviter,
+                     uint rebate);       
+
+    event Claimed (uint indexed campaignID, address indexed receiver, uint indexed amount);                                              
 
 
 //------------------------
@@ -141,7 +150,8 @@ contract Crowdfunding {
     }
 
 
-    function startSelling (uint campaignID) public managerOnly(campaignID, msg.sender) {
+    function startSelling (uint campaignID) 
+    public checkCampaignID(campaignID) managerOnly(campaignID, msg.sender) {
 
         require(getCampaignStatus(campaignID) == CampaignStatus.Stopped, "Сan't start selling");
         Campaign storage c = campaigns[campaignID];
@@ -151,18 +161,19 @@ contract Crowdfunding {
         if (c.timeLimits.startTime == 0) c.timeLimits.startTime = startTime;
         
         c.status = CampaignStatus.Continues;
-        emit StartSelling(campaignID, startTime);
+        emit StartedSelling(campaignID, startTime);
     }
 
 
-    function stopSelling (uint campaignID) public managerOnly(campaignID, msg.sender) {
+    function stopSelling (uint campaignID) 
+    public checkCampaignID(campaignID) managerOnly(campaignID, msg.sender) {
 
         require(getCampaignStatus(campaignID) == CampaignStatus.Continues, "Сan't stop selling");
 
         Campaign storage c = campaigns[campaignID];
         c.status = CampaignStatus.Stopped;
         
-        emit StopSelling(campaignID, now);
+        emit StoppedSelling(campaignID, now);
     }
 
 
@@ -170,13 +181,69 @@ contract Crowdfunding {
     returns(CampaignStatus) {
         Campaign storage c = campaigns[campaignID];
 
-        if (c.token.tokenAddress == address(0x00)) c.status = CampaignStatus.Stopped; //не началось
+        if (c.token.tokenAddress == address(0x00)) c.status = CampaignStatus.Stopped;
         else {
             uint gottenAmount = (c.token.soldQuantity).mul(c.token.price);
-            if (c.amount <= gottenAmount) c.status = CampaignStatus.Succeeded; //собрали всё
-            else if (c.timeLimits.endTime < now) c.status = CampaignStatus.Failed; //не собрали
+            if (c.amount <= gottenAmount) c.status = CampaignStatus.Succeeded;
+            else if (c.timeLimits.endTime < now) c.status = CampaignStatus.Failed;
         }
         return (c.status);
+    }
+
+
+    function crowdSell(uint campaignID, address inviter) public payable {
+        
+        require(getCampaignStatus(campaignID) == CampaignStatus.Continues, "Fundraising stopped");
+        uint rebate = sell(campaignID, msg.value, inviter);
+
+        emit CrowdSell(campaignID, msg.sender, msg.value, inviter, rebate);
+    }
+
+
+    function sell(uint campaignID, uint value, address inviter) internal 
+    checkCampaignID(campaignID) returns(uint) {
+
+        Campaign storage c = campaigns[campaignID];
+        uint numTokens = value.div(c.token.price);
+        require(c.token.soldQuantity.add(numTokens) <= c.token.quantity, "Sold out");
+        
+        uint rebate = 0;
+        if (inviter != address(0x00) && inviter != msg.sender && c.token.rebateRate > 0) {
+            rebate = (numTokens.mul(c.token.rebateRate)).div(100);
+        }
+
+        address token = c.token.tokenAddress;
+        require(FirToken(token).allowance(c.token.owner, address(this)) >= numTokens.add(rebate),
+            "Make sure allowance is enough");
+
+        if (rebate > 0) FirToken(token).transferFrom(c.token.owner, inviter, rebate);
+        FirToken(token).transferFrom(c.token.owner, msg.sender, numTokens);
+        
+        c.token.soldQuantity = c.token.soldQuantity.add(numTokens);
+        c.participants[msg.sender] = Participant(numTokens, false);
+
+        return rebate;
+    }
+
+
+    function claim(uint campaignID) 
+    public checkCampaignID(campaignID) managerOnly(campaignID, msg.sender) {
+
+        require(getCampaignStatus(campaignID) == CampaignStatus.Succeeded, "Сampaign was not successful");
+        
+        Campaign storage c = campaigns[campaignID];
+        require(!c.claimed, "Already withdrawn");
+
+        uint gottenAmount = (c.token.soldQuantity).mul(c.token.price);
+        transfer(msg.sender, gottenAmount);
+        c.claimed = true;
+
+        emit Claimed(campaignID, msg.sender, gottenAmount);
+    }
+
+
+    function transfer(address receiver, uint amount) internal { 
+        receiver.transfer(amount);
     }
 
 
@@ -190,7 +257,7 @@ contract Crowdfunding {
     function getTokenInfo(uint campaignID) external view checkCampaignID(campaignID) 
     returns(address, uint, uint, uint) {
         Token storage t = campaigns[campaignID].token;
-        return (t.tokenAddress, t.price, t.quantity, t.rebate);
+        return (t.tokenAddress, t.price, t.quantity, t.rebateRate);
     }
 
     function getSoldTokens(uint campaignID) external view checkCampaignID(campaignID) 
