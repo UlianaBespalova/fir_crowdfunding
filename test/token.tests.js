@@ -3,7 +3,7 @@ const _deploy_contracts = require("../migrations/2_deploy_contracts.js");
 const FirToken = artifacts.require("FirToken");
 const truffleAssert = require('truffle-assertions');
 
-/*
+
 contract("tokenTest", accounts => {
 
     let contract;
@@ -51,7 +51,9 @@ contract("tokenTest", accounts => {
 
         let res = await contract.approve(acc2, 10);
         truffleAssert.eventEmitted(res, 'Approval', (event)=>{
-            return (event.src===acc1 && event.guy===acc2 && event.wad.valueOf()==10);
+            return (event.src===acc1 && 
+                    event.guy===acc2 && 
+                    event.wad.valueOf()==10);
         });
     });
 
@@ -125,7 +127,9 @@ contract("tokenTest", accounts => {
         assert.equal(balance2.valueOf(), 30);
 
         truffleAssert.eventEmitted(transfer, 'Transfer', (event)=>{
-            return (event.src===acc1 && event.dst===acc2 && event.wad.valueOf()==30);
+            return (event.src===acc1 && 
+                    event.dst===acc2 && 
+                    event.wad.valueOf()==30);
         });
 
         await contract.transfer(acc1, 30, {from: acc2});
@@ -151,7 +155,9 @@ contract("tokenTest", accounts => {
         assert.equal(balance3.valueOf(), 20);
 
         truffleAssert.eventEmitted(transfer, 'Transfer', (event)=>{
-            return (event.src===acc2 && event.dst===acc3 && event.wad.valueOf()==20);
+            return (event.src===acc2 && 
+                    event.dst===acc3 && 
+                    event.wad.valueOf()==20);
         });
     });
 
@@ -199,4 +205,4 @@ contract("tokenTest", accounts => {
         assert.equal(noErr, undefined);
     });
 
-});*/
+});

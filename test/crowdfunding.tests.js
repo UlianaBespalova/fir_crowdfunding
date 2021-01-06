@@ -51,10 +51,10 @@ contract("crowdfundingTest", accounts => {
 
     it ("createNewCampaignEvent: ", async()=> {
 
-        let res = await contract.newCampaign("", 30, acc1);
+        let res = await contract.newCampaign("", 100, acc1);
         truffleAssert.eventEmitted(res, 'CampaignAdded', (event)=>{
             return (event.campaignID.valueOf()==2 && 
-                    event.amount.valueOf()==30 && event.manager===acc1);
+                    event.amount.valueOf()==100 && event.manager===acc1);
         });
 
 
@@ -63,8 +63,8 @@ contract("crowdfundingTest", accounts => {
         await contract.setSaleParams(2, token.address, acc1, [1, 100, 0], endTime); 
 
         await contract.startSelling(2);
-        await contract.crowdSell(2, acc2, {value: 10, from: acc2});
-        await contract.crowdSell(2, acc3, {value: 10, from: acc3}); 
+        await contract.crowdSell(2, acc2, {value: 20, from: acc2});
+        await contract.crowdSell(2, acc3, {value: 30, from: acc3}); 
     });
 
 
@@ -474,7 +474,7 @@ contract("crowdfundingTest", accounts => {
     it ("crowdfundingFailed: ", async()=> {
 
         let sold = await contract.getSoldTokens.call(2); 
-        assert.equal(sold, 20);
+        assert.equal(sold, 50);
 
         status = await contract.getCampaignStatus.call(2);
         assert.equal(status, 2);        
@@ -522,6 +522,77 @@ contract("crowdfundingTest", accounts => {
         }        
         assert.notEqual(err, undefined, "Error must be thrown");
         assert.isAbove(err.message.search("Already withdrawn"), -1);
+    });
+
+
+    it ("returnDonationFailed (Was not failed): ", async()=> {
+
+        let err;
+
+        try {
+            await contract.returnDonation(0, {from: acc2});  
+        } catch (error) {
+            err = error;
+        }        
+        assert.notEqual(err, undefined, "Error must be thrown");
+        assert.isAbove(err.message.search("Сampaign was not a failure"), -1);
+    });
+
+
+    it ("returnDonationFailed (Not a participant): ", async()=> {
+
+        let err;
+
+        try {
+            await contract.returnDonation(2, {from: acc1});  
+        } catch (error) {
+            err = error;
+        }        
+        assert.notEqual(err, undefined, "Error must be thrown");
+        assert.isAbove(err.message.search("No donation to return"), -1);
+    });
+
+
+    it ("returnDonation: ", async()=> {
+
+        let balanceOld = await web3.eth.getBalance(contract.address);
+        res = await contract.returnDonation(2, {from: acc2});
+        let balanceNew = await web3.eth.getBalance(contract.address);
+
+        assert.equal(balanceOld - balanceNew, 20);
+
+        truffleAssert.eventEmitted(res, 'ReturnedDonation', (event)=>{
+            return (event.campaignID.valueOf() == 2 && 
+                    event.participant === acc2 &&
+                    event.amount.valueOf() == 20);
+        }); 
+
+
+        balanceOld = await web3.eth.getBalance(contract.address);
+        res = await contract.returnDonation(2, {from: acc3});
+        balanceNew = await web3.eth.getBalance(contract.address);
+
+        assert.equal(balanceOld - balanceNew, 30);
+
+        truffleAssert.eventEmitted(res, 'ReturnedDonation', (event)=>{
+            return (event.campaignID.valueOf() == 2 && 
+                    event.participant === acc3 &&
+                    event.amount.valueOf() == 30);
+        }); 
+    });
+
+
+    it ("returnDonationFailed (Already returned): ", async()=> {
+
+        let err;
+
+        try {
+            await contract.returnDonation(2, {from: acc3});
+        } catch (error) {
+            err = error;
+        }        
+        assert.notEqual(err, undefined, "Error must be thrown");
+        assert.isAbove(err.message.search("No donation to return"), -1);
     });
 
 });
