@@ -8,7 +8,6 @@ contract Crowdfunding {
 
     using SafeMath for uint256;
 
-
     enum CampaignStatus { 
         Continues,
         Succeeded,
@@ -48,8 +47,6 @@ contract Crowdfunding {
     Campaign[] public campaigns;
 
 
-   
-       
     modifier moreThanZero(uint value) {
         require(value > 0, "Value should be more than zero");
         _;
@@ -65,8 +62,6 @@ contract Crowdfunding {
         require(c.manager == user, "Оnly for the campaign manager");
         _;
     }
-
-
 
     event CampaignAdded(uint indexed campaignID, 
                          uint indexed amount, 
@@ -97,8 +92,6 @@ contract Crowdfunding {
                             uint indexed amount);                                           
 
 
-
-
     function newCampaign(string _description, uint _amount, address _manager)
     public moreThanZero(_amount) returns (uint) {
         
@@ -116,7 +109,6 @@ contract Crowdfunding {
         emit CampaignAdded(campaignID, _amount, c.manager, msg.sender);
         return campaignID;
     }
-
 
     function setSaleParams(uint campaignID,
                            address token, 
@@ -146,7 +138,6 @@ contract Crowdfunding {
                               price_quantity_rebate[2], endTime); 
     }
 
-
     function startSelling (uint campaignID) 
     public checkCampaignID(campaignID) managerOnly(campaignID, msg.sender) {
 
@@ -161,7 +152,6 @@ contract Crowdfunding {
         emit StartedSelling(campaignID, startTime);
     }
 
-
     function stopSelling (uint campaignID) 
     public checkCampaignID(campaignID) managerOnly(campaignID, msg.sender) {
 
@@ -172,7 +162,6 @@ contract Crowdfunding {
         
         emit StoppedSelling(campaignID, now);
     }
-
 
     function getCampaignStatus(uint campaignID) public checkCampaignID(campaignID) 
     returns(CampaignStatus) {
@@ -187,7 +176,6 @@ contract Crowdfunding {
         return (c.status);
     }
 
-
     function crowdSell(uint campaignID, address inviter) public payable {
         
         require(getCampaignStatus(campaignID) == CampaignStatus.Continues, "Fundraising stopped");
@@ -195,7 +183,6 @@ contract Crowdfunding {
 
         emit CrowdSell(campaignID, msg.sender, msg.value, inviter, rebate);
     }
-
 
     function sell(uint campaignID, uint value, address inviter) internal 
     checkCampaignID(campaignID) returns(uint) {
@@ -222,7 +209,6 @@ contract Crowdfunding {
         return rebate;
     }
 
-
     function claim(uint campaignID) //забрать собранную сумму
     public checkCampaignID(campaignID) managerOnly(campaignID, msg.sender) {
 
@@ -237,7 +223,6 @@ contract Crowdfunding {
 
         emit Claimed(campaignID, msg.sender, gottenAmount);
     }
-
 
     function returnDonation(uint campaignID) //вернуть взнос в случае провала кампании
     public checkCampaignID(campaignID) {
@@ -255,11 +240,9 @@ contract Crowdfunding {
         emit ReturnedDonation(campaignID, msg.sender, donationToReturn);
     }
 
-
     function transfer(address receiver, uint amount) internal { 
         receiver.transfer(amount);
     }
-
 
     //для тестирования
     function getCampaignInfo(uint campaignID) external view checkCampaignID(campaignID) 
@@ -279,5 +262,4 @@ contract Crowdfunding {
         Token storage t = campaigns[campaignID].token;
         return (t.soldQuantity);
     }
-   
 }
