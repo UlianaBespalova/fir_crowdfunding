@@ -29,7 +29,6 @@ contract FirToken {
     event Start();
 
 
-
     constructor(bytes32 _symbol, bytes32 _name, uint256 _initialAmount) public {
         name = _name;
         symbol = _symbol;
@@ -37,11 +36,9 @@ contract FirToken {
         totalSupply = _initialAmount;  
     }
 
-    
     function approve(address guy) external returns (bool) {
         return approve(guy, uint(-1));
     }
-
 
     function approve(address guy, uint wad) public stoppable returns (bool) {
         allowed[msg.sender][guy] = wad;
@@ -49,11 +46,9 @@ contract FirToken {
         return true;
     }
 
-
     function transfer(address dst, uint wad) external returns (bool) {
         return transferFrom(msg.sender, dst, wad);
     }
-
 
     function transferFrom(address src, address dst, uint wad) public stoppable returns (bool)
     {
@@ -64,7 +59,6 @@ contract FirToken {
         return _transferFrom(src, dst, wad);
     }
 
-
     function _transferFrom(address src, address dst, uint wad) internal returns (bool)
     {
         balanceOf[src] = (balanceOf[src]).sub(wad);
@@ -74,22 +68,18 @@ contract FirToken {
         return true;
     }
 
-
     function balanceOf(address owner) public view returns (uint256) {
         return balanceOf[owner];
     }
-
 
     function allowance(address owner, address spender) public view returns (uint256) {
         return allowed[owner][spender];
     }
 
-
     function stop() public {
         stopped = true;
         emit Stop();
     }
-
 
     function start() public {
         stopped = false;
